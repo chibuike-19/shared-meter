@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, ResidentRow } from "@/lib/supabase/types";
-import { publicEnv } from "@/lib/env";
 import {
   createResidentSchema,
   updateResidentSchema,
@@ -20,7 +19,11 @@ type DB = SupabaseClient<Database>;
  * it unchanged (spec §8, §10). Privileged calls expect the service-role client.
  */
 
-/** Create (invite) a resident and seed their opening reading. Admin only. */
+/**
+ * Create a resident with an email + password login (no invite email sent) and
+ * seed their opening reading. Admin only. The email is auto-confirmed so the
+ * resident can sign in immediately with the password the admin shares.
+ */
 export async function createResident(
   db: DB,
   input: CreateResidentInput,
@@ -28,22 +31,23 @@ export async function createResident(
 ): Promise<ResidentRow> {
   const data = createResidentSchema.parse(input);
 
-  // Invite the auth user (sends a magic link) so phone/email identity exists
-  // up front; auth_user_id is linked immediately.
-  const { data: invited, error: inviteError } =
-    await db.auth.admin.inviteUserByEmail(data.email, {
-      redirectTo: `${publicEnv.SITE_URL}/auth/callback`,
-    });
-  if (inviteError || !invited?.user) {
+  // Create the auth user directly with a password; email_confirm skips the
+  // confirmation email (keeps the free-tier email quota for resets only).
+  const { data: created, error: createError } = await db.auth.admin.createUser({
+    email: data.email,
+    password: data.password,
+    email_confirm: true,
+  });
+  if (createError || !created?.user) {
     throw new Error(
-      `Could not invite ${data.email}: ${inviteError?.message ?? "unknown error"}`,
+      `Could not create login for ${data.email}: ${createError?.message ?? "unknown error"}`,
     );
   }
 
   const { data: resident, error: insertError } = await db
     .from("residents")
     .insert({
-      auth_user_id: invited.user.id,
+      auth_user_id: created.user.id,
       full_name: data.fullName,
       house_label: data.houseLabel,
       phone_e164: data.phoneE164 ?? null,
@@ -57,7 +61,7 @@ export async function createResident(
 
   if (insertError || !resident) {
     // Best-effort cleanup so a failed insert doesn't orphan the auth user.
-    await db.auth.admin.deleteUser(invited.user.id).catch(() => {});
+    await db.auth.admin.deleteUser(created.user.id).catch(() => {});
     throw new Error(`Could not create resident: ${insertError?.message}`);
   }
 

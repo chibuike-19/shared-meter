@@ -30,7 +30,7 @@ export function AddResidentDialog() {
     startTransition(async () => {
       const res = await createResidentAction(null, formData);
       if (res.ok) {
-        toast.success("Resident invited. A magic-link email has been sent.");
+        toast.success("Resident created. Share their email and password so they can sign in.");
         setOpen(false);
         router.refresh();
       } else {
@@ -48,13 +48,23 @@ export function AddResidentDialog() {
         <DialogHeader>
           <DialogTitle>Add resident</DialogTitle>
           <DialogDescription>
-            Invites the person by email and seeds their opening reading.
+            Creates an email + password login and seeds their opening reading.
+            Share the password with the resident; they can change it later via
+            &ldquo;Forgot password&rdquo;.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <Field name="fullName" label="Full name" required />
           <Field name="houseLabel" label="House label" placeholder="House C" required />
           <Field name="email" label="Email" type="email" required />
+          <Field
+            name="password"
+            label="Initial password"
+            type="text"
+            minLength={8}
+            placeholder="min. 8 characters"
+            required
+          />
           <Field name="phoneE164" label="Phone (E.164)" placeholder="+2348012345678" />
           <Field name="meterSerial" label="Meter serial (optional)" />
           <div className="grid grid-cols-2 gap-3">

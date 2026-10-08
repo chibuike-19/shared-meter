@@ -20,6 +20,7 @@ export const createResidentSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required"),
   houseLabel: z.string().trim().min(1, "House label is required"),
   email: z.string().trim().email("A valid email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   phoneE164,
   role: z.enum(["admin", "resident"]).default("resident"),
   meterSerial: z.string().trim().optional().or(z.literal("").transform(() => undefined)),

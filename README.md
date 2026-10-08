@@ -11,7 +11,7 @@ Supabase (Postgres, Auth, Storage, RLS) · Zod · Recharts · Vitest.
 ## Build status
 
 - ✅ **Phase 1 — Foundations**: project setup, schema + migrations, RLS,
-  magic-link auth, seeded admin, residents CRUD with opening readings and
+  email+password auth, seeded admin, residents CRUD with opening readings and
   opening balances, placeholder dashboard.
 - ✅ **Phase 2 — Calculation core**: pure, framework-independent helpers
   (`src/lib/services/calc.ts`) for balance/credit/suggestion/price lookup, fully
@@ -99,12 +99,13 @@ supabase db push
 ### 4. Seed the first admin
 
 ```bash
-node scripts/seed-admin.mjs admin@example.com "Admin Name" "House A" 1000 200
-#                            ^email           ^full name   ^house  ^opening ^price/kWh
+node scripts/seed-admin.mjs admin@example.com "StrongPass123" "Admin Name" "House A" 1000 200
+#                            ^email           ^password        ^full name   ^house  ^opening ^price/kWh
 ```
 
-This invites the admin by email (magic link), inserts their resident row +
-opening reading, and seeds an initial price of ₦200/kWh.
+This creates the admin's email + password login (email auto-confirmed, no email
+sent), inserts their resident row + opening reading, and seeds an initial price
+of ₦200/kWh. Sign in with that email and password.
 
 ### 5. Run
 
@@ -117,11 +118,14 @@ pnpm lint
 
 ## Verifying Phase 1
 
-1. Open the magic link from the seed email → you land on the dashboard as admin.
+1. Sign in at `/login` with the seeded admin email + password → you land on the
+   dashboard as admin.
 2. Go to **Residents → Add resident** and create 4 residents with opening
-   readings. Each receives a magic-link invite email.
-3. Each resident opens their link and sees their placeholder dashboard with a
-   balance derived from their opening values.
+   readings and an initial password. Share each email + password with the
+   resident (no emails are sent).
+3. Each resident signs in and sees their placeholder dashboard with a balance
+   derived from their opening values. Residents can change their password via
+   **Forgot password** (the only flow that sends an email).
 
 ## Deploy
 

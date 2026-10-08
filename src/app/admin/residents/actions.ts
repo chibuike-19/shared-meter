@@ -33,6 +33,7 @@ export async function createResidentAction(
         fullName: String(formData.get("fullName") ?? ""),
         houseLabel: String(formData.get("houseLabel") ?? ""),
         email: String(formData.get("email") ?? ""),
+        password: String(formData.get("password") ?? ""),
         phoneE164: String(formData.get("phoneE164") ?? ""),
         role: formData.get("role") === "admin" ? "admin" : "resident",
         meterSerial: String(formData.get("meterSerial") ?? ""),

@@ -34,18 +34,21 @@ function loadEnv(file) {
 
 loadEnv(".env.local");
 
-const [, , email, fullName, house, openingReadingArg, priceArg] = process.argv;
+const [, , email, password, fullName, house, openingReadingArg, priceArg] = process.argv;
 
-if (!email || !fullName || !house) {
+if (!email || !password || !fullName || !house) {
   console.error(
-    'Usage: node scripts/seed-admin.mjs <email> "<Full Name>" "<House>" [openingReading] [pricePerKwh]',
+    'Usage: node scripts/seed-admin.mjs <email> <password> "<Full Name>" "<House>" [openingReading] [pricePerKwh]',
   );
+  process.exit(1);
+}
+if (password.length < 8) {
+  console.error("Password must be at least 8 characters.");
   process.exit(1);
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 if (!url || !serviceKey) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
@@ -60,19 +63,20 @@ const db = createClient(url, serviceKey, {
 });
 
 async function main() {
-  console.log(`Inviting admin ${email} …`);
-  const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(
+  console.log(`Creating admin ${email} …`);
+  const { data: created, error: createErr } = await db.auth.admin.createUser({
     email,
-    { redirectTo: `${siteUrl}/auth/callback` },
-  );
-  if (inviteErr || !invited?.user) {
-    throw new Error(`Invite failed: ${inviteErr?.message ?? "unknown"}`);
+    password,
+    email_confirm: true,
+  });
+  if (createErr || !created?.user) {
+    throw new Error(`Create user failed: ${createErr?.message ?? "unknown"}`);
   }
 
   const { data: resident, error: resErr } = await db
     .from("residents")
     .insert({
-      auth_user_id: invited.user.id,
+      auth_user_id: created.user.id,
       full_name: fullName,
       house_label: house,
       role: "admin",
@@ -99,7 +103,7 @@ async function main() {
     console.log(`Seeded initial price ₦${price}/kWh.`);
   }
 
-  console.log(`✅ Admin ${fullName} (${house}) created. Check ${email} for the magic link.`);
+  console.log(`✅ Admin ${fullName} (${house}) created. Sign in at the app with ${email} and the password you set.`);
 }
 
 main().catch((err) => {

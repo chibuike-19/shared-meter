@@ -3,7 +3,13 @@ import { createServerClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
 
 // Publicly reachable without a session: auth flow + external webhooks.
-const PUBLIC_PATHS = ["/login", "/auth", "/api/webhooks"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/auth",
+  "/api/webhooks",
+];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,36 +16,34 @@ import {
 } from "@/components/ui/card";
 
 function LoginForm() {
+  const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get("redirectTo") ?? "/dashboard";
   const inactive = params.get("error") === "inactive";
 
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
   const [message, setMessage] = useState("");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("sending");
+    setStatus("submitting");
     setMessage("");
     try {
       const supabase = createClient();
-      // Use the domain the user is actually on, so the magic link always comes
-      // back to this deployment (not a hard-coded/env SITE_URL).
-      const origin = window.location.origin;
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
-        options: {
-          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
-            redirectTo,
-          )}`,
-        },
+        password,
       });
       if (error) throw error;
-      setStatus("sent");
+      router.replace(redirectTo);
+      router.refresh();
     } catch (err) {
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Something went wrong");
+      setMessage(
+        err instanceof Error ? err.message : "Could not sign in. Check your details.",
+      );
     }
   }
 
@@ -52,9 +51,7 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>
-          We&apos;ll email you a magic link. No password needed.
-        </CardDescription>
+        <CardDescription>Enter your email and password.</CardDescription>
       </CardHeader>
       <CardContent>
         {inactive && (
@@ -62,36 +59,43 @@ function LoginForm() {
             Your account is inactive. Ask an admin to re-activate it.
           </p>
         )}
-        {status === "sent" ? (
-          <p className="rounded-md bg-green-50 p-3 text-sm text-green-800">
-            Check <strong>{email}</strong> for a sign-in link.
-          </p>
-        ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Forgot password?
+              </Link>
             </div>
-            {status === "error" && (
-              <p className="text-sm text-red-600">{message}</p>
-            )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={status === "sending"}
-            >
-              {status === "sending" ? "Sending…" : "Send magic link"}
-            </Button>
-          </form>
-        )}
+            <Input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          {status === "error" && <p className="text-sm text-red-600">{message}</p>}
+          <Button type="submit" className="w-full" disabled={status === "submitting"}>
+            {status === "submitting" ? "Signing in…" : "Sign in"}
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );
