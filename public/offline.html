@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Offline · Shared Meter</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #fafafa;
+        color: #111;
+      }
+      .card {
+        max-width: 22rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      .bolt { font-size: 2.5rem; }
+      h1 { font-size: 1.1rem; margin: 0.75rem 0 0.25rem; }
+      p { color: #666; font-size: 0.9rem; line-height: 1.4; }
+      button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #16a34a;
+        background: #16a34a;
+        color: #fff;
+        border-radius: 0.5rem;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="bolt">⚡</div>
+      <h1>You're offline</h1>
+      <p>
+        Shared Meter needs a connection to show live balances. Reconnect and try
+        again.
+      </p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>
