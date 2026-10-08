@@ -3,7 +3,6 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { publicEnv } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +29,13 @@ function LoginForm() {
     setMessage("");
     try {
       const supabase = createClient();
+      // Use the domain the user is actually on, so the magic link always comes
+      // back to this deployment (not a hard-coded/env SITE_URL).
+      const origin = window.location.origin;
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${publicEnv.SITE_URL}/auth/callback?next=${encodeURIComponent(
+          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
             redirectTo,
           )}`,
         },
