@@ -29,6 +29,9 @@ export async function logRecharge(
   const input = logRechargeSchema.parse(args);
 
   const rechargedAt = input.rechargedAt ?? new Date();
+  if (rechargedAt.getTime() > Date.now() + 60_000) {
+    throw new UserError("A recharge date can't be in the future.");
+  }
   const price = await getCurrentPrice(db, rechargedAt);
   if (price === null) {
     throw new UserError("No price is set yet. Ask an admin to set the price first.");
@@ -135,14 +138,17 @@ export async function rejectRecharge(
 }
 
 /**
- * Timestamp of the most recent APPROVED recharge across the group, or null.
- * Used to prompt residents with stale readings to submit a fresh one (spec §6).
+ * Timestamp of the most recent APPROVED recharge that has actually happened
+ * (recharged_at ≤ now) across the group, or null. Future-dated recharges are
+ * ignored so the dashboard "submit a reading" prompt can't get stuck on a date
+ * that hasn't arrived yet (spec §6).
  */
 export async function getLatestApprovedRechargeAt(db: DB): Promise<string | null> {
   const { data, error } = await db
     .from("recharges")
     .select("recharged_at")
     .eq("status", "approved")
+    .lte("recharged_at", new Date().toISOString())
     .order("recharged_at", { ascending: false })
     .limit(1)
     .maybeSingle<Pick<RechargeRow, "recharged_at">>();
