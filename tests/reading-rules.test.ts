@@ -66,6 +66,16 @@ describe("decideReading", () => {
     if (d.action === "reject") expect(d.reason).toContain("48 hours");
   });
 
+  it("accepts an admin reading even on a big jump (trusted)", () => {
+    const d = decideReading({ ...base, isAdmin: true, valueKwh: 1100, lastAccepted: last(1000) });
+    expect(d).toEqual({ action: "insert", status: "accepted", usedKwh: 100 });
+  });
+
+  it("still rejects an admin reading lower than the last accepted one", () => {
+    const d = decideReading({ ...base, isAdmin: true, valueKwh: 900, lastAccepted: last(1000) });
+    expect(d.action).toBe("reject");
+  });
+
   it("lets an admin set any time", () => {
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
     const d = decideReading({

@@ -194,7 +194,12 @@ export default async function GroupPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <span className="text-sm">{fmtDate(r.lastReadingAt)}</span>
+                          <span className="text-sm tabular-nums">
+                            {r.lastReadingAt ? `${fmtKwh(r.latestReading)} kWh` : "—"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {fmtDate(r.lastReadingAt)}
+                          </span>
                           {stale ? (
                             <Badge variant="outline" className="w-fit border-amber-500 text-amber-700">
                               Stale

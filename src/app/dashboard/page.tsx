@@ -136,6 +136,28 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Your last reading</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            {balance?.lastReadingAt ? (
+              <span>
+                <span className="text-2xl tabular-nums text-foreground">
+                  {fmtKwh(balance.latestReading)}
+                </span>
+                <span className="ml-2 text-muted-foreground">
+                  on {new Date(balance.lastReadingAt).toLocaleString("en-NG")}
+                </span>
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                No readings submitted yet.
+              </span>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <SubmitReadingDialog
             latestReading={balance?.latestReading ?? Number(resident.opening_reading)}

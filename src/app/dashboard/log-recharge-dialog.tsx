@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { logRechargeAction } from "./actions";
 import { uploadProofFromBrowser } from "@/lib/upload-client";
 import { MAX_PROOF_BYTES } from "@/lib/services/storage";
+import { friendlyError } from "@/lib/errors";
 import { RequiredMark } from "@/components/required-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,7 @@ export function LogRechargeDialog() {
         const receiptPath = await uploadProofFromBrowser("receipts", receipt);
         fd.set("receiptPath", receiptPath);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Photo upload failed.");
+        setError(friendlyError(err));
         return;
       }
       const res = await logRechargeAction(fd);

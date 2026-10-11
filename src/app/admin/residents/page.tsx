@@ -6,6 +6,7 @@ import { AdminNav } from "@/components/admin-nav";
 import { AddResidentDialog } from "./resident-form";
 import { ActiveToggle } from "./active-toggle";
 import { EditResidentDialog, ReplaceMeterDialog } from "./row-actions";
+import { DeleteResidentButton } from "./admin-entry";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -109,6 +110,13 @@ export default async function ResidentsPage() {
                           }}
                         />
                         <ActiveToggle id={r.id} isActive={r.is_active} />
+                        <DeleteResidentButton
+                          resident={{
+                            id: r.id,
+                            house_label: r.house_label,
+                            full_name: r.full_name,
+                          }}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

@@ -4,6 +4,7 @@ import { submitReadingSchema, type SubmitReadingInput } from "@/lib/validation/s
 import { decideReading, type LastReading } from "@/lib/services/reading-rules";
 import { getNumberSetting } from "@/lib/services/settings";
 import { writeAudit } from "@/lib/services/audit";
+import { UserError } from "@/lib/errors";
 
 type DB = SupabaseClient<Database>;
 
@@ -17,16 +18,20 @@ export type SubmitReadingResult =
     };
 
 export interface SubmitReadingArgs extends SubmitReadingInput {
-  /** Storage path of the required meter photo (v1). */
-  photoPath: string;
-  /** Admins may back-date/forward-date freely (spec §6). */
+  /**
+   * Storage path of the meter photo. Required for resident self-submissions
+   * (enforced in the web action); optional when an admin submits on behalf.
+   */
+  photoPath?: string | null;
+  /** Admins may back-date/forward-date freely and their readings are trusted. */
   isAdmin?: boolean;
 }
 
 /**
  * Submit a meter reading (spec §6, §8). Applies `decideReading`:
  * lower → throws, duplicate → no-op, implausible jump → flagged (excluded from
- * balances), otherwise accepted. A photo is required in v1.
+ * balances), otherwise accepted. Residents must attach a photo (enforced in the
+ * web action); admins may submit on behalf without one.
  * Framework-independent; the route/action uploads the photo and authorizes.
  */
 export async function submitReading(
@@ -35,7 +40,6 @@ export async function submitReading(
   actorId: string | null,
 ): Promise<SubmitReadingResult> {
   const input = submitReadingSchema.parse(args);
-  if (!args.photoPath) throw new Error("A meter photo is required.");
 
   const lastAccepted = await loadLastAccepted(db, input.residentId);
   const jumpThresholdPerDay = await getNumberSetting(db, "jump_threshold_kwh_per_day");
@@ -51,7 +55,7 @@ export async function submitReading(
     isAdmin: args.isAdmin ?? false,
   });
 
-  if (decision.action === "reject") throw new Error(decision.reason);
+  if (decision.action === "reject") throw new UserError(decision.reason);
   if (decision.action === "duplicate") return { outcome: "duplicate" };
 
   const { data: reading, error } = await db
@@ -60,7 +64,7 @@ export async function submitReading(
       resident_id: input.residentId,
       reading_kwh: input.valueKwh,
       taken_at: takenAt.toISOString(),
-      photo_path: args.photoPath,
+      photo_path: args.photoPath ?? null,
       status: decision.status,
       flag_reason: decision.flagReason ?? null,
       source: input.source,
@@ -85,7 +89,7 @@ async function loadReading(db: DB, readingId: string): Promise<ReadingRow> {
     .eq("id", readingId)
     .maybeSingle<ReadingRow>();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Reading not found");
+  if (!data) throw new UserError("That reading no longer exists.");
   return data;
 }
 

@@ -5,6 +5,8 @@ import WS from "ws";
 import type { Database } from "@/lib/supabase/types";
 import { getGroupSummary } from "@/lib/services/balances";
 import { getResidentTimeline } from "@/lib/services/timeline";
+import { getCurrentPrice } from "@/lib/services/pricing";
+import { suggestRecharge } from "@/lib/services/calc";
 
 /**
  * Live, self-cleaning verification of the spec §4 worked example through the
@@ -126,10 +128,15 @@ describe.runIf(run)("worked example via views (live, self-cleaning)", () => {
     expect(poolOfFour).toBeCloseTo(0, 3);
   });
 
-  it("names C as the next recharger at ₦11,000", async () => {
-    const summary = await getGroupSummary(db);
-    expect(summary.nextRecharger?.residentId).toBe(ids.C);
-    expect(summary.nextRecharger?.suggestedNaira).toBe(11000);
+  it("ranks C as the most-owing of the four, with a correctly-derived suggestion", async () => {
+    const [summary, price] = await Promise.all([getGroupSummary(db), getCurrentPrice(db)]);
+    const four = summary.ranking.filter((r) =>
+      [ids.A, ids.B, ids.C, ids.D].includes(r.residentId),
+    );
+    const mostOwing = four.reduce((a, b) => (b.balanceKwh < a.balanceKwh ? b : a));
+    expect(mostOwing.residentId).toBe(ids.C); // C at −55 is the most negative of the four
+    // Suggested amount is derived from the current price, not hard-coded.
+    expect(mostOwing.suggestedNaira).toBe(suggestRecharge(-55, price!));
   });
 
   it("A's timeline running balance ends at +140 and includes the recharge", async () => {

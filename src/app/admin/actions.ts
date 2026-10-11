@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { friendlyError } from "@/lib/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { approveRecharge, rejectRecharge } from "@/lib/services/recharges";
 import { acceptReading, rejectReading } from "@/lib/services/readings";
@@ -13,10 +13,7 @@ import { getSubmissionById, type Submission } from "@/lib/services/submissions";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-function describeError(err: unknown): string {
-  if (err instanceof z.ZodError) return err.issues.map((i) => i.message).join("; ");
-  return err instanceof Error ? err.message : "Something went wrong";
-}
+const describeError = friendlyError;
 
 function revalidateAll() {
   revalidatePath("/admin/approvals");

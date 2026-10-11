@@ -8,13 +8,15 @@ export const phoneE164 = z
   .optional()
   .or(z.literal("").transform(() => undefined));
 
-/** kWh reading: non-negative, at most 2 decimals. */
+/**
+ * kWh reading: non-negative; decimals welcome. Normalised to 2 dp to match the
+ * database precision (numeric(12,2)) rather than rejecting extra decimals.
+ */
 export const readingKwh = z
   .number()
   .nonnegative("Reading cannot be negative")
-  .refine((n) => Number.isFinite(n) && Math.round(n * 100) === n * 100, {
-    message: "At most 2 decimal places",
-  });
+  .refine(Number.isFinite, { message: "Enter a valid number" })
+  .transform((n) => Math.round(n * 100) / 100);
 
 export const createResidentSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required"),

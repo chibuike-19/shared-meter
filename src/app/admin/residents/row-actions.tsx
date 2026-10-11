@@ -73,7 +73,7 @@ export function EditResidentDialog({ resident }: { resident: EditableResident })
               name="openingReading"
               label="Opening reading (kWh)"
               type="number"
-              step="0.01"
+              step="any"
               defaultValue={String(resident.opening_reading)}
             />
             <Field
@@ -155,14 +155,14 @@ export function ReplaceMeterDialog({
             name="oldFinalReading"
             label="Old meter final reading (kWh)"
             type="number"
-            step="0.01"
+            step="any"
             required
           />
           <Field
             name="newStartReading"
             label="New meter start reading (kWh)"
             type="number"
-            step="0.01"
+            step="any"
             required
           />
           {error && <p className="text-sm text-red-600">{error}</p>}

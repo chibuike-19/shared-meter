@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { submitReadingAction } from "./actions";
 import { uploadProofFromBrowser } from "@/lib/upload-client";
 import { MAX_PROOF_BYTES } from "@/lib/services/storage";
+import { friendlyError } from "@/lib/errors";
 import { RequiredMark } from "@/components/required-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,7 +89,7 @@ export function SubmitReadingDialog({
         // the Server Action's 1 MB body limit).
         photoPath = await uploadProofFromBrowser("readings", photo!);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Photo upload failed.");
+        setError(friendlyError(err));
         setStep("form");
         return;
       }
@@ -145,7 +146,7 @@ export function SubmitReadingDialog({
                 id="valueKwh"
                 type="number"
                 inputMode="decimal"
-                step="0.01"
+                step="any"
                 min={latestReading}
                 placeholder={`≥ ${latestReading}`}
                 value={value}
@@ -165,7 +166,6 @@ export function SubmitReadingDialog({
                 id="photo"
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={onPickPhoto}
                 required
               />

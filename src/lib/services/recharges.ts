@@ -4,12 +4,16 @@ import { logRechargeSchema, type LogRechargeInput } from "@/lib/validation/schem
 import { kwhFromNaira } from "@/lib/services/calc";
 import { getCurrentPrice } from "@/lib/services/pricing";
 import { writeAudit } from "@/lib/services/audit";
+import { UserError } from "@/lib/errors";
 
 type DB = SupabaseClient<Database>;
 
 export interface LogRechargeArgs extends LogRechargeInput {
-  /** Storage path of the required receipt/token photo (v1). */
-  receiptPath: string;
+  /**
+   * Storage path of the receipt/token photo. Required for resident
+   * self-submissions (enforced in the web action); optional for admin on-behalf.
+   */
+  receiptPath?: string | null;
 }
 
 /**
@@ -23,12 +27,11 @@ export async function logRecharge(
   args: LogRechargeArgs,
 ): Promise<RechargeRow> {
   const input = logRechargeSchema.parse(args);
-  if (!args.receiptPath) throw new Error("A receipt/token photo is required.");
 
   const rechargedAt = input.rechargedAt ?? new Date();
   const price = await getCurrentPrice(db, rechargedAt);
   if (price === null) {
-    throw new Error("No price is set yet. Ask an admin to set the price first.");
+    throw new UserError("No price is set yet. Ask an admin to set the price first.");
   }
 
   const kwhCredited = kwhFromNaira(input.amountNaira, price);
@@ -40,7 +43,7 @@ export async function logRecharge(
       amount_naira: input.amountNaira,
       price_per_kwh_applied: price,
       kwh_credited: kwhCredited,
-      receipt_path: args.receiptPath,
+      receipt_path: args.receiptPath ?? null,
       recharged_at: rechargedAt.toISOString(),
       status: "pending",
       note: input.note ?? null,
@@ -60,7 +63,7 @@ async function loadRecharge(db: DB, rechargeId: string): Promise<RechargeRow> {
     .eq("id", rechargeId)
     .maybeSingle<RechargeRow>();
   if (error) throw new Error(error.message);
-  if (!data) throw new Error("Recharge not found");
+  if (!data) throw new UserError("That recharge no longer exists.");
   return data;
 }
 
@@ -75,7 +78,7 @@ export async function approveRecharge(
 ): Promise<RechargeRow> {
   const before = await loadRecharge(db, rechargeId);
   if (before.status !== "pending") {
-    throw new Error(`Recharge is already ${before.status}.`);
+    throw new UserError(`This recharge has already been ${before.status}.`);
   }
   const { data, error } = await db
     .from("recharges")
@@ -110,7 +113,7 @@ export async function rejectRecharge(
 ): Promise<RechargeRow> {
   const before = await loadRecharge(db, rechargeId);
   if (before.status !== "pending") {
-    throw new Error(`Recharge is already ${before.status}.`);
+    throw new UserError(`This recharge has already been ${before.status}.`);
   }
   const { data, error } = await db
     .from("recharges")

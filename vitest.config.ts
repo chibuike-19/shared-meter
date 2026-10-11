@@ -8,6 +8,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     passWithNoTests: true,
+    // Live DB integration tests (RUN_DB_IT) share one Supabase project and some
+    // mutate global state (e.g. price), so run files serially to avoid races.
+    fileParallelism: false,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
   },
   resolve: {

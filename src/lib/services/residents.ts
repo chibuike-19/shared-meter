@@ -10,6 +10,7 @@ import {
   type ReplaceMeterInput,
 } from "@/lib/validation/schemas";
 import { writeAudit } from "@/lib/services/audit";
+import { UserError } from "@/lib/errors";
 
 type DB = SupabaseClient<Database>;
 
@@ -130,7 +131,7 @@ export async function updateResident(
 ): Promise<ResidentRow> {
   const data = updateResidentSchema.parse(input);
   const before = await getResident(db, data.id);
-  if (!before) throw new Error("Resident not found");
+  if (!before) throw new UserError("Resident not found.");
 
   const patch: Partial<ResidentRow> = {};
   if (data.fullName !== undefined) patch.full_name = data.fullName;
@@ -169,7 +170,7 @@ export async function setResidentActive(
 ): Promise<ResidentRow> {
   const data = setActiveSchema.parse(input);
   const before = await getResident(db, data.id);
-  if (!before) throw new Error("Resident not found");
+  if (!before) throw new UserError("Resident not found.");
 
   const { data: updated, error } = await db
     .from("residents")
@@ -202,7 +203,7 @@ export async function replaceMeter(
 ): Promise<ResidentRow> {
   const data = replaceMeterSchema.parse(input);
   const before = await getResident(db, data.residentId);
-  if (!before) throw new Error("Resident not found");
+  if (!before) throw new UserError("Resident not found.");
 
   const newOffset =
     Number(before.consumed_offset_kwh) +
@@ -239,4 +240,57 @@ export async function replaceMeter(
     after: updated,
   });
   return updated as ResidentRow;
+}
+
+/**
+ * Permanently delete a resident: remove their readings/recharges/adjustments
+ * (so they leave the group pool entirely) and their auth login, then the
+ * resident row. References where this resident acted on OTHER residents' rows
+ * are redirected first so foreign keys don't block the delete. Audited.
+ * The caller (action layer) must prevent an admin from deleting themselves.
+ */
+export async function deleteResident(
+  db: DB,
+  residentId: string,
+  adminId: string,
+): Promise<void> {
+  const before = await getResident(db, residentId);
+  if (!before) throw new UserError("Resident not found.");
+
+  // 1) Redirect references where this resident acted on OTHER residents' rows,
+  //    so deleting their own rows / row won't violate foreign keys.
+  await db.from("readings").update({ submitted_by: null }).eq("submitted_by", residentId).neq("resident_id", residentId);
+  await db.from("recharges").update({ approved_by: null }).eq("approved_by", residentId).neq("paid_by", residentId);
+  await db.from("adjustments").update({ created_by: adminId }).eq("created_by", residentId).neq("resident_id", residentId);
+  await db.from("price_history").update({ set_by: null }).eq("set_by", residentId);
+  await db.from("audit_log").update({ actor_id: null }).eq("actor_id", residentId);
+
+  // 2) Delete the resident's own records (removes them from the group pool).
+  const delReadings = await db.from("readings").delete().eq("resident_id", residentId);
+  if (delReadings.error) throw new Error(`Could not delete readings: ${delReadings.error.message}`);
+  const delRecharges = await db.from("recharges").delete().eq("paid_by", residentId);
+  if (delRecharges.error) throw new Error(`Could not delete recharges: ${delRecharges.error.message}`);
+  const delAdjustments = await db.from("adjustments").delete().eq("resident_id", residentId);
+  if (delAdjustments.error) throw new Error(`Could not delete adjustments: ${delAdjustments.error.message}`);
+
+  // 3) Audit the deletion BEFORE removing the row (actor is the admin, not the deleted resident).
+  await writeAudit(db, {
+    actorId: adminId,
+    action: "resident.delete",
+    entity: "residents",
+    entityId: residentId,
+    before,
+  });
+
+  // 4) Delete the resident row, then the auth user (order matters: the row's
+  //    auth_user_id references auth.users).
+  const delResident = await db.from("residents").delete().eq("id", residentId);
+  if (delResident.error) throw new Error(`Could not delete resident: ${delResident.error.message}`);
+
+  if (before.auth_user_id) {
+    const { error: authErr } = await db.auth.admin.deleteUser(before.auth_user_id);
+    if (authErr) {
+      throw new Error(`Resident removed, but deleting their login failed: ${authErr.message}`);
+    }
+  }
 }

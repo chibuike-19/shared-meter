@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,9 +42,7 @@ function LoginForm() {
       router.refresh();
     } catch (err) {
       setStatus("error");
-      setMessage(
-        err instanceof Error ? err.message : "Could not sign in. Check your details.",
-      );
+      setMessage(friendlyError(err));
     }
   }
 

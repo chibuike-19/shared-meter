@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { UserError } from "@/lib/errors";
 
 type DB = SupabaseClient<Database>;
 
@@ -33,19 +34,19 @@ export async function uploadProof(
   kind: "readings" | "receipts",
   file: File,
 ): Promise<string> {
-  if (!file || file.size === 0) throw new Error("A photo is required.");
+  if (!file || file.size === 0) throw new UserError("A photo is required.");
   if (!file.type.startsWith("image/")) {
-    throw new Error("The upload must be an image.");
+    throw new UserError("The upload must be an image.");
   }
   if (file.size > MAX_PROOF_BYTES) {
     const mb = (file.size / (1024 * 1024)).toFixed(1);
-    throw new Error(`Photo is ${mb} MB — the limit is 5 MB. Please use a smaller photo.`);
+    throw new UserError(`That photo is ${mb} MB — the limit is 5 MB. Please use a smaller one.`);
   }
   const path = `${authUserId}/${kind}/${crypto.randomUUID()}.${extFor(file)}`;
   const { error } = await db.storage
     .from(PROOFS_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw new Error(`Photo upload failed: ${error.message}`);
+  if (error) throw new UserError("Couldn't upload your photo. Please try again.");
   return path;
 }
 

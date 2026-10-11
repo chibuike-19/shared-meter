@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createResidentAction } from "./actions";
+import { suggestEmailFix } from "@/lib/email-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,24 +20,55 @@ import {
 
 export function AddResidentDialog() {
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailFix, setEmailFix] = useState<{ typed: string; suggested: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function runCreate(form: HTMLFormElement) {
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     startTransition(async () => {
       const res = await createResidentAction(null, formData);
       if (res.ok) {
         toast.success("Resident created. Share their email and password so they can sign in.");
         setOpen(false);
+        setEmailFix(null);
         router.refresh();
       } else {
         setError(res.error);
       }
     });
+  }
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = String(new FormData(form).get("email") ?? "");
+    const fix = suggestEmailFix(email);
+    // Flag a likely typo and ask before creating — a wrong email means the
+    // resident can never sign in.
+    if (fix && fix.toLowerCase() !== email.toLowerCase()) {
+      setEmailFix({ typed: email, suggested: fix });
+      return;
+    }
+    runCreate(form);
+  }
+
+  function useSuggestion() {
+    const form = formRef.current;
+    if (!form || !emailFix) return;
+    const input = form.elements.namedItem("email") as HTMLInputElement | null;
+    if (input) input.value = emailFix.suggested;
+    setEmailFix(null);
+    runCreate(form);
+  }
+
+  function keepTyped() {
+    const form = formRef.current;
+    setEmailFix(null);
+    if (form) runCreate(form);
   }
 
   return (
@@ -53,7 +85,7 @@ export function AddResidentDialog() {
             &ldquo;Forgot password&rdquo;.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={onSubmit} className="space-y-4">
           <Field name="fullName" label="Full name" required />
           <Field name="houseLabel" label="House label" placeholder="House C" required />
           <Field name="email" label="Email" type="email" required />
@@ -72,7 +104,7 @@ export function AddResidentDialog() {
               name="openingReading"
               label="Opening reading (kWh)"
               type="number"
-              step="0.01"
+              step="any"
               required
             />
             <Field
@@ -96,9 +128,37 @@ export function AddResidentDialog() {
             </select>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {emailFix && (
+            <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p>
+                That email looks like it might be a typo. Did you mean{" "}
+                <strong className="break-all">{emailFix.suggested}</strong> instead of{" "}
+                <span className="break-all">{emailFix.typed}</span>?
+              </p>
+              <p className="text-xs">
+                A wrong email means this person won&apos;t be able to sign in.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button type="button" size="sm" onClick={useSuggestion} disabled={pending}>
+                  Use {emailFix.suggested}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={keepTyped}
+                  disabled={pending}
+                >
+                  Keep what I typed
+                </Button>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Inviting…" : "Invite resident"}
+              {pending ? "Creating…" : "Create resident"}
             </Button>
           </DialogFooter>
         </form>

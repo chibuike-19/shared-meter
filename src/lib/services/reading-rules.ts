@@ -76,6 +76,11 @@ export function decideReading(input: DecideReadingInput): ReadingDecision {
 
   const usedKwh = roundTo(valueKwh - lastAccepted.readingKwh, 3);
 
+  // Admin-entered readings are trusted — they're accepted without flagging.
+  if (isAdmin) {
+    return { action: "insert", status: "accepted", usedKwh };
+  }
+
   // Implausible jump → flagged, excluded from balances until an admin accepts.
   const elapsedDays = Math.max((takenMs - lastTakenMs) / MS_PER_DAY, 0);
   const threshold = jumpThresholdPerDay * elapsedDays;

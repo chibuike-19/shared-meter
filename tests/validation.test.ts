@@ -9,10 +9,23 @@ describe("createResidentSchema", () => {
       fullName: "Ada Lovelace",
       houseLabel: "House A",
       email: "ada@example.com",
+      password: "supersecret",
       openingReading: 1240,
     });
     expect(parsed.role).toBe("resident");
     expect(parsed.openingReading).toBe(1240);
+  });
+
+  it("rejects a password shorter than 8 characters", () => {
+    expect(() =>
+      createResidentSchema.parse({
+        fullName: "Ada",
+        houseLabel: "House A",
+        email: "ada@example.com",
+        password: "short",
+        openingReading: 1240,
+      }),
+    ).toThrow();
   });
 
   it("rejects a reading with more than 2 decimals", () => {

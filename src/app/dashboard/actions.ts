@@ -1,17 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { requireResident } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { submitReading } from "@/lib/services/readings";
 import { logRecharge } from "@/lib/services/recharges";
+import { friendlyError } from "@/lib/errors";
 import type { ResidentRow } from "@/lib/supabase/types";
 
-function describeError(err: unknown): string {
-  if (err instanceof z.ZodError) return err.issues.map((i) => i.message).join("; ");
-  return err instanceof Error ? err.message : "Something went wrong";
-}
+const describeError = friendlyError;
 
 /**
  * The photo is uploaded to Storage from the browser (to avoid the 1 MB Server
